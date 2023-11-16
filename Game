@@ -1,0 +1,553 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Net.NetworkInformation;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace YahtzeeCal
+{
+    public static class Game
+    {
+        private static Player currentPlayer; // TODO change back to private
+        private static int currentPlayerNum = 0;
+        private static int roundRollCount = 0;
+        private static bool gameComplete = false;
+        private static List<Die> keptDice = new List<Die>();
+        private static List<string> scoresQualified = new List<string>();
+
+        public static void StartGame()
+        {
+            Console.WriteLine("SCRABBLE TIME BITCH");
+            AddPlayers();
+            InitializeDice();
+            TakeTurn();
+        }
+
+        public static void AddPlayers()
+        {
+            while (true)
+            {
+                //TODO Binary check and player name confirmation
+                Console.Write("Please enter the player name: ");
+                var nameInput = Console.ReadLine();
+                Player.allPlayers.Add(new Player(nameInput));
+
+                if (Player.allPlayers.Count() >= 2 && Player.allPlayers.Count() <= 6)
+                {
+                    Console.Write("Do you want to add another player?: ");
+                    var binaryInput = Console.ReadLine();
+                    if (binaryInput.ToUpper() == "N")
+                    {
+                        break;
+                    }
+                }
+            }
+            //TODO roll to start game and assign player to playerTurn
+            currentPlayer = Player.allPlayers[0];
+        }
+
+        public static void InitializeDice()
+        {
+            Die.allDice.Add(new Die("A"));
+            Die.allDice.Add(new Die("B"));
+            Die.allDice.Add(new Die("C"));
+            Die.allDice.Add(new Die("D"));
+            Die.allDice.Add(new Die("E"));
+        }
+
+        public static void ResetRolls()
+        {
+            foreach (var die in Die.allDice)
+            {
+                die.CurrentRoll = 0;
+            }
+        }
+
+        public static void PrintRolls()
+        {
+            Console.WriteLine("\nYour roll:");
+            foreach (var die in Die.allDice)
+            {
+                Console.WriteLine($"{die.DieName}: {die.CurrentRoll}");
+            }
+        }
+
+        public static void TakeTurn()
+        {
+            while (!gameComplete)
+            {
+                if (roundRollCount == 4)
+                {
+                    Die.allRollValues.Clear();
+                    Console.WriteLine("\nCHANGING PLAYER\n");
+                    ChangePlayer();
+                }
+
+                Console.WriteLine($"\nCurrent Player: {Game.currentPlayer.PlayerName}");
+                Console.WriteLine($"Current Player Score: {Game.currentPlayer.totalScore}");
+                Console.WriteLine($"Current Round Roll Count: {roundRollCount + 1}");
+                RollDice();
+                keptDice.Clear();
+                PrintRolls();
+                Die.GenerateAllRollValues();
+                GenerateScoreOptions(GetDiceCounts());
+                currentPlayer.CalculateTotalScore();
+                CheckPlayerGameCompletion();
+                roundRollCount += 1;
+            }
+        }
+
+        public static void CheckPlayerGameCompletion()
+        {
+            if (currentPlayer.availableScores.Count == 0)
+            {
+                Console.WriteLine($"{currentPlayer.PlayerName} has filled all of their scores!");
+                currentPlayer.AllScoresFilled = true;
+            }
+
+            var completedPlayers = 0;
+            var totalPlayers = Player.allPlayers.Count();
+            foreach (var player in Player.allPlayers)
+            {
+                if (player.AllScoresFilled == true)
+                {
+                    completedPlayers++;
+                }
+            }
+
+            if (totalPlayers == completedPlayers)
+            {
+                var winningScore = 0;
+                var winningPlayer = "";
+                foreach (var player in Player.allPlayers)
+                {
+                    if (player.totalScore > winningScore)
+                    {
+                        winningScore = player.totalScore;
+                        winningPlayer = player.PlayerName;
+                    }
+                }
+                Console.WriteLine($"WINNER! {winningPlayer} with {winningScore} points!");
+                Environment.Exit(0);
+            }
+        }
+
+        public static void ChangePlayer()
+        {
+            var eligiblePlayerFound = false;
+            while (!eligiblePlayerFound)
+            {
+                if (currentPlayerNum == Player.allPlayers.Count - 1)
+                {
+                    currentPlayerNum = 0;
+                }
+                else
+                {
+                    currentPlayerNum++;
+                }
+                currentPlayer = Player.allPlayers[currentPlayerNum];
+                if (currentPlayer.AllScoresFilled == false)
+                {
+                    eligiblePlayerFound = true;
+                }
+            }
+            roundRollCount = 0;
+            
+        }
+
+        public static void SelectKeptDice()
+        {
+            string[] dieNames = { "A", "B", "C", "D", "E" };
+
+            while (true)
+            {
+                Console.WriteLine("Type the die you would like to keep, or type 0 to roll");
+                var input = Console.ReadLine().ToUpper();
+
+                if (input == "0")
+                {
+                    break;
+                }
+                else if (dieNames.Contains(input))
+                {
+                    keptDice.Add(Die.allDice.Find(x => x.DieName == input));
+                }
+            }
+            foreach (var x in keptDice)
+            {
+                Console.WriteLine(x.DieName);
+            }
+        }
+
+        public static void RollDice()
+        {
+            foreach (var x in Die.allDice)
+            {
+                if (!keptDice.Contains(x))
+                {
+                    // Console.WriteLine($"Rolling {x.DieName}");
+                    Die.RollDie(x);
+                }
+            }
+        }
+
+        public static int[] GetDiceCounts()
+        {
+            int oneCount = 0;
+            int twoCount = 0;
+            int threeCount = 0;
+            int fourCount = 0;
+            int fiveCount = 0;
+            int sixCount = 0;
+
+            foreach (var die in Die.allDice)
+            {
+                switch (die.CurrentRoll)
+                {
+                    case 1:
+                        oneCount += 1;
+                        break;
+                    case 2:
+                        twoCount += 1;
+                        break;
+                    case 3:
+                        threeCount += 1;
+                        break;
+                    case 4:
+                        fourCount += 1;
+                        break;
+                    case 5:
+                        fiveCount += 1;
+                        break;
+                    case 6:
+                        sixCount += 1;
+                        break;
+                }
+            }
+            return new int[] { oneCount, twoCount, threeCount, fourCount, fiveCount, sixCount };
+        }
+
+        public static void GenerateScoreOptions(int[] diceCounts)
+        {
+            // assigning for readability
+            var oneCount = diceCounts[0];
+            var twoCount = diceCounts[1];
+            var threeCount = diceCounts[2];
+            var fourCount = diceCounts[3];
+            var fiveCount = diceCounts[4];
+            var sixCount = diceCounts[5];
+
+            var totalCount = 0;
+            foreach (var die in Die.allDice)
+            {
+                totalCount += die.CurrentRoll;
+            }
+
+            bool twoOfTheSame = false;
+            bool threeOfTheSame = false;
+            bool threeOfAKind = false;
+            bool fourOfAKind = false;
+            bool fullHouse = false;
+            bool yahtzee = false;
+            bool smStraight = false;
+            bool lgStraight = false;
+
+            foreach (var count in diceCounts)
+            {
+                if (count >= 3)
+                {
+                    threeOfAKind = true;
+                }
+                if (count >= 4)
+                {
+                    fourOfAKind = true;
+                }
+                if (count == 5)
+                {
+                    yahtzee = true;
+                }
+                if (count == 3)
+                {
+                    threeOfTheSame = true;
+                }
+                if (count == 2)
+                {
+                    twoOfTheSame = true;
+                }
+                if (twoOfTheSame && threeOfTheSame)
+                {
+                    fullHouse = true;
+                }
+            }
+
+            if (Die.allRollValues.Contains(1) && Die.allRollValues.Contains(2) && Die.allRollValues.Contains(3) && Die.allRollValues.Contains(4))
+            {
+                smStraight = true;
+            }
+
+            if (Die.allRollValues.Contains(2) && Die.allRollValues.Contains(3) && Die.allRollValues.Contains(4) && Die.allRollValues.Contains(5))
+            {
+                smStraight = true;
+            }
+
+            if (Die.allRollValues.Contains(3) && Die.allRollValues.Contains(4) && Die.allRollValues.Contains(5) && Die.allRollValues.Contains(6))
+            {
+                smStraight = true;
+            }
+
+            if (Die.allRollValues.Contains(1) && Die.allRollValues.Contains(2) && Die.allRollValues.Contains(3) && Die.allRollValues.Contains(4) && Die.allRollValues.Contains(5))
+            {
+                lgStraight = true;
+            }
+
+            if (Die.allRollValues.Contains(2) && Die.allRollValues.Contains(3) && Die.allRollValues.Contains(4) && Die.allRollValues.Contains(5) && Die.allRollValues.Contains(6))
+            {
+                lgStraight = true;
+            }
+
+
+            var playerAvailableScores = Game.currentPlayer.availableScores;
+            var playerFilledScores = Game.currentPlayer.filledScores;
+
+            var choiceValidated = false;
+            while (!choiceValidated)
+            {
+                if (yahtzee)
+                {
+                    Console.WriteLine("YAHTZEE!");
+                    choiceValidated = true;
+                }
+                Console.WriteLine("\nChoose an option!");
+                if (playerAvailableScores.Contains("ones"))
+                {
+                    Console.WriteLine($"ONES: {oneCount} for Ones");
+                    scoresQualified.Add("ONES");
+                }
+                if (playerAvailableScores.Contains("twos"))
+                {
+                    Console.WriteLine($"TWOS: {twoCount * 2} for Twos");
+                    scoresQualified.Add("TWOS");
+                }
+                if (playerAvailableScores.Contains("threes"))
+                {
+                    Console.WriteLine($"THREES: {threeCount * 3} for Threes");
+                    scoresQualified.Add("THREES");
+                }
+                if (playerAvailableScores.Contains("fours"))
+                {
+                    Console.WriteLine($"FOURS: {fourCount * 4} for Fours");
+                    scoresQualified.Add("FOURS");
+                }
+                if (playerAvailableScores.Contains("fives"))
+                {
+                    Console.WriteLine($"FIVES: {fiveCount * 5} for Fives");
+                    scoresQualified.Add("FIVES");
+                }
+                if (playerAvailableScores.Contains("sixes"))
+                {
+                    Console.WriteLine($"SIXES: {sixCount * 6} for Sixes");
+                    scoresQualified.Add("SIXES");
+                }
+                if (playerAvailableScores.Contains("three of a kind") && threeOfAKind)
+                {
+                    Console.WriteLine($"3OAK: {totalCount} for Three of a Kind");
+                    scoresQualified.Add("3OAK");
+                }
+                if (playerAvailableScores.Contains("three of a kind") && !threeOfAKind)
+                {
+                    Console.WriteLine($"3OAK: 0 for Three of a Kind");
+                    scoresQualified.Add("3OAK");
+                }
+                if (playerAvailableScores.Contains("four of a kind") && fourOfAKind)
+                {
+                    Console.WriteLine($"4OAK: {totalCount} for Four of a Kind");
+                    scoresQualified.Add("4OAK");
+                }
+                if (playerAvailableScores.Contains("four of a kind") && !fourOfAKind)
+                {
+                    Console.WriteLine($"4OAK: 0 for Four of a Kind");
+                    scoresQualified.Add("4OAK");
+                }
+                if (playerAvailableScores.Contains("sm straight") && smStraight)
+                {
+                    Console.WriteLine($"SMST: 30 for Small Straight");
+                    scoresQualified.Add("SMST");
+                }
+                if (playerAvailableScores.Contains("sm straight") && !smStraight)
+                {
+                    Console.WriteLine($"SMST: 0 for Small Straight");
+                    scoresQualified.Add("SMST");
+                }
+                if (playerAvailableScores.Contains("lg straight") && lgStraight)
+                {
+                    Console.WriteLine($"LGST: 40 for Large Straight");
+                    scoresQualified.Add("LGST");
+                }
+                if (playerAvailableScores.Contains("lg straight") && !lgStraight)
+                {
+                    Console.WriteLine($"LGST: 0 for Large Straight");
+                    scoresQualified.Add("LGST");
+                }
+                if (playerAvailableScores.Contains("full house") && fullHouse)
+                {
+                    Console.WriteLine($"FULL: 30 for Full House");
+                    scoresQualified.Add("FULL");
+                }
+                if (playerAvailableScores.Contains("full house") && !fullHouse)
+                {
+                    Console.WriteLine($"FULL: 0 for Full House");
+                    scoresQualified.Add("FULL");
+                }
+                if (yahtzee && Game.currentPlayer.yahtzeeCount == 1)
+                {
+                    Console.WriteLine($"YHTZ: 50 for Yahtzee");
+                    scoresQualified.Add("YHTZ");
+                    Game.currentPlayer.yahtzeeCount++;
+                }
+                if (yahtzee && Game.currentPlayer.yahtzeeCount == 2)
+                {
+                    Console.WriteLine($"YHTZ: 100 for Yahtzee");
+                    scoresQualified.Add("YHTZ");
+                    Game.currentPlayer.yahtzeeCount++;
+                }
+                if (!yahtzee && Game.currentPlayer.yahtzeeCount == 0)
+                {
+                    Console.WriteLine($"YHTZ: 0 for Yahtzee");
+                    scoresQualified.Add("YHTZ");
+                }
+                if (playerAvailableScores.Contains("chance"))
+                {
+                    Console.WriteLine($"CHNC: {totalCount} for Chance");
+                    scoresQualified.Add("CHNC");
+                }
+                if (roundRollCount < 2)
+                {
+                    Console.WriteLine("ROLL: Select dice and roll again");
+                }
+
+                var input = Console.ReadLine().ToUpper();
+
+                if (roundRollCount == 2 && input == "ROLL")
+                {
+                    Console.WriteLine("Nice try");
+                    continue;
+                }
+
+                switch (input)
+                {
+                    case "ONES":
+                        updateScoresAndEndTurn(oneCount, "ones", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "TWOS":
+                        updateScoresAndEndTurn(twoCount * 2, "twos", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "THREES":
+                        updateScoresAndEndTurn(threeCount * 3, "threes", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "FOURS":
+                        updateScoresAndEndTurn(fourCount * 4, "fours", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "FIVES":
+                        updateScoresAndEndTurn(fiveCount * 5, "fives", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "SIXES":
+                        updateScoresAndEndTurn(sixCount * 6, "sixes", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "3OAK":
+                        if (threeOfAKind)
+                        {
+                            updateScoresAndEndTurn(totalCount, "three of a kind", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "three of a kind", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "4OAK":
+                        if (fourOfAKind)
+                        {
+                            updateScoresAndEndTurn(totalCount, "four of a kind", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "four of a kind", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "SMST":
+                        if (smStraight)
+                        {
+                            updateScoresAndEndTurn(30, "sm straight", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "sm straight", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "LGST":
+                        if (lgStraight)
+                        {
+                            updateScoresAndEndTurn(40, "lg straight", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "lg straight", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "FULL":
+                        if (fullHouse)
+                        {
+                            updateScoresAndEndTurn(30, "full house", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "full house", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "YHTZ":
+                        if (yahtzee && Game.currentPlayer.yahtzeeCount == 1)
+                        {
+                            updateScoresAndEndTurn(50, "yahtzee", playerFilledScores, playerAvailableScores);
+                        }
+                        else if (yahtzee && Game.currentPlayer.yahtzeeCount == 2)
+                        {
+                            updateScoresAndEndTurn(100, "yahtzee2", playerFilledScores, playerAvailableScores);
+                        }
+                        else
+                        {
+                            updateScoresAndEndTurn(0, "yahtzee", playerFilledScores, playerAvailableScores);
+                        }
+                        choiceValidated = true;
+                        break;
+                    case "CHNC":
+                        updateScoresAndEndTurn(totalCount, "chance", playerFilledScores, playerAvailableScores);
+                        choiceValidated = true;
+                        break;
+                    case "ROLL":
+                        SelectKeptDice();
+                        choiceValidated = true;
+                        break;
+                }
+            }
+        }
+
+        static void updateScoresAndEndTurn(int filledScoreToAdd, string usedScoreToRemove, List<int> filledScores, List<string> availableScores)
+        {
+            filledScores.Add(filledScoreToAdd); 
+            availableScores.Remove(usedScoreToRemove);
+            roundRollCount = 3;
+        }
+    }
+}
