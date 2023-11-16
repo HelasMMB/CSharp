@@ -1,0 +1,43 @@
+using Microsoft.SqlServer.Server;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace YahtzeeCal
+{
+    public class Player
+    {
+        public string PlayerName { get; set; }
+        public int PlayerId { get; set; }
+        public bool AllScoresFilled = false;
+        public List<string> availableScores = new List<string> { "ones", "twos", "threes", "fours", "fives", "sixes", "sm straight", "lg straight", "three of a kind", "four of a kind", "full house", "yahtzee", "chance" };
+        public List<int> filledScores = new List<int>();
+        public int totalScore = 0;
+        public int yahtzeeCount = 0;
+        public static List<Player> allPlayers = new List<Player>();
+        
+        //TODO add roll for start order
+        public static void OrderPlayers()
+        {
+
+        }
+
+        public void CalculateTotalScore()
+        {
+            var totalScore = 0;
+            foreach (var x in filledScores)
+            {
+                totalScore += x;
+            }
+            this.totalScore = totalScore;
+        }
+
+        public Player(string playerName) 
+        { 
+            PlayerName = playerName;
+            PlayerId = Player.allPlayers.Count() + 1;
+        }
+    }
+}
